@@ -38,7 +38,19 @@ def tensor_map(fn):
     """
 
     def _map(out, out_shape, out_strides, in_storage, in_shape, in_strides):
-        raise NotImplementedError('Need to include this file from past assignment.')
+
+        if list(out_shape) == list(in_shape) and list(out_strides) == list(in_strides):
+            for k in prange(len(out)):
+                out[k] = fn(in_storage[k])
+        else:
+            for i in prange(len(out)):
+                out_index = np.empty(MAX_DIMS, np.int32)
+                in_index = np.empty(MAX_DIMS, np.int32)
+                count(i, out_shape, out_index)
+                broadcast_index(out_index, out_shape, in_shape, in_index)
+                o = index_to_position(out_index, out_strides)
+                j = index_to_position(in_index, in_strides)
+                out[o] = fn(in_storage[j])
 
     return njit(parallel=True)(_map)
 
@@ -107,7 +119,24 @@ def tensor_zip(fn):
         b_shape,
         b_strides,
     ):
-        raise NotImplementedError('Need to include this file from past assignment.')
+
+        if list(a_shape) == list(b_shape) == list(out_shape) and list(
+            a_strides
+        ) == list(b_strides) == list(out_strides):
+            for x in prange(len(out)):
+                out[x] = fn(a_storage[x], b_storage[x])
+        else:
+            for i in prange(len(out)):
+                out_index = np.empty(MAX_DIMS, np.int32)
+                a_index = np.empty(MAX_DIMS, np.int32)
+                b_index = np.empty(MAX_DIMS, np.int32)
+                count(i, out_shape, out_index)
+                o = index_to_position(out_index, out_strides)
+                broadcast_index(out_index, out_shape, a_shape, a_index)
+                j = index_to_position(a_index, a_strides)
+                broadcast_index(out_index, out_shape, b_shape, b_index)
+                k = index_to_position(b_index, b_strides)
+                out[o] = fn(a_storage[j], b_storage[k])
 
     return njit(parallel=True)(_zip)
 
@@ -168,7 +197,19 @@ def tensor_reduce(fn):
         reduce_shape,
         reduce_size,
     ):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        for i in prange(len(out)):
+            out_index = np.empty(MAX_DIMS, np.int32)
+            a_index = np.empty(MAX_DIMS, np.int32)
+            count(i, out_shape, out_index)
+            o = index_to_position(out_index, out_strides)
+
+            for s in range(reduce_size):
+                count(s, reduce_shape, a_index)
+                for j in range(len(reduce_shape)):
+                    if reduce_shape[j] != 1:
+                        out_index[j] = a_index[j]
+                t = index_to_position(out_index, a_strides)
+                out[o] = fn(out[o], a_storage[t])
 
     return njit(parallel=True)(_reduce)
 
@@ -263,8 +304,27 @@ def tensor_matrix_multiply(
     Returns:
         None : Fills in `out`
     """
+    for x in prange(len(out)):
+        out_index = np.empty(MAX_DIMS, np.int32)
+        a_index = np.empty(MAX_DIMS, np.int32)
+        b_index = np.empty(MAX_DIMS, np.int32)
+        count(x, out_shape, out_index)
+        a_index = np.copy(out_index)
+        b_index = np.copy(out_index)
 
-    raise NotImplementedError('Need to include this file from past assignment.')
+        for k in range(b_shape[-2]):
+            a_index[len(out_shape) - 1] = k
+            b_index[len(out_shape) - 2] = k
+            a_final_ind = np.empty(len(a_shape), np.int32)
+            b_final_ind = np.empty(len(b_shape), np.int32)
+
+            broadcast_index(a_index, out_shape, a_shape, a_final_ind)
+            broadcast_index(b_index, out_shape, b_shape, b_final_ind)
+
+            a_pos = index_to_position(a_final_ind, a_strides)
+            b_pos = index_to_position(b_final_ind, b_strides)
+            out_pos = index_to_position(out_index, out_strides)
+            out[out_pos] += a_storage[a_pos] * b_storage[b_pos]
 
 
 def matrix_multiply(a, b):

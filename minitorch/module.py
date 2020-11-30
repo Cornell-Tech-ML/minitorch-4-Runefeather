@@ -22,11 +22,21 @@ class Module:
 
     def train(self):
         "Set the mode of this module and all descendent modules to `train`."
-        raise NotImplementedError('Need to include this file from past assignment.')
+        self.mode = "train"
+        for mods in self.__dict__["_modules"].values():
+            if mods.__dict__["_modules"] == {}:
+                mods.mode = "train"
+            else:
+                mods.train()
 
     def eval(self):
         "Set the mode of this module and all descendent modules to `eval`."
-        raise NotImplementedError('Need to include this file from past assignment.')
+        self.mode = "eval"
+        for mods in self.__dict__["_modules"].values():
+            if mods.__dict__["_modules"] == {}:
+                mods.mode = "eval"
+            else:
+                mods.eval()
 
     def named_parameters(self):
         """
@@ -36,7 +46,21 @@ class Module:
         Returns:
             dict: Each name (key) and :class:`Parameter` (value) under this module.
         """
-        raise NotImplementedError('Need to include this file from past assignment.')
+        allparams = {}
+        allparams.update(self._parameters)
+        for k, v in self.__dict__["_modules"].items():
+            if len(v.modules()) == 0:
+                toupd = {
+                    str(k) + "." + kmod: vmod for kmod, vmod in v._parameters.items()
+                }
+                allparams.update(toupd)
+            else:
+                v.__dict__["_modules"] = {
+                    str(k) + "." + kmod: vmod
+                    for kmod, vmod in v.__dict__["_modules"].items()
+                }
+                allparams.update(v.named_parameters())
+        return allparams
 
     def parameters(self):
         return self.named_parameters().values()

@@ -57,14 +57,14 @@ def tensor_conv1d(
         input (array): storage for `input` tensor.
         input_shape (array): shape for `input` tensor.
         input_strides (array): strides for `input` tensor.
-        weight (array): storage for `input` tensor.
-        weight_shape (array): shape for `input` tensor.
-        weight_strides (array): strides for `input` tensor.
+        weight (array): storage for `weight` tensor.
+        weight_shape (array): shape for `weight` tensor.
+        weight_strides (array): strides for `weight` tensor.
         reverse (bool): anchor weight at left or right
     """
-    batch_, out_channels, out_width = out_shape
     batch, in_channels, width = input_shape
     out_channels_, in_channels_, kw = weight_shape
+    batch_, out_channels, out_width = out_shape
 
     assert (
         batch == batch_
@@ -74,8 +74,36 @@ def tensor_conv1d(
     s1 = input_strides
     s2 = weight_strides
 
-    # TODO: Implement for Task 4.1.
-    raise NotImplementedError('Need to implement for Task 4.1')
+    # print("in shape: ", input_shape)
+    # print("out shape: ", out_shape)
+    # print("Weight: ", weight_shape)
+
+    if reverse == True:
+        out = out[::-1]
+        weight = weight[::-1]
+
+    for i in range(len(out)):
+        out_index = np.empty(len(out_shape), np.int32)
+        count(i, out_shape, out_index)
+        for j in range(in_channels * kw):
+            w_ind = np.empty(len(weight_shape), np.int32)
+            count(j, weight_shape, w_ind)
+            w_ind[0] = out_index[1]
+            if w_ind[-1] + out_index[-1] < width:
+                i_ind = np.copy(w_ind)
+                i_ind[0] = out_index[0]
+                i_ind[-1] = w_ind[-1] + out_index[-1]
+                # print("out_ind: ", out_index, " i_ind: ", i_ind, " and w_ind: ", w_ind)
+                inp_pos = index_to_position(i_ind, s1)
+                weight_pos = index_to_position(w_ind, s2)
+                out_pos = index_to_position(out_index, out_strides)
+                out[out_pos] += input[inp_pos] * weight[weight_pos]
+
+        # if(len(inp_ind) != 0):
+        # for k in range(len(inp_ind)):
+        # inp_real_ind = np.empty(MAX_DIMS, np.int32)
+        # broadcast_index(inp_ind[k], out_shape, input_shape, inp_real_ind)
+    # raise NotImplementedError('Need to implement for Task 4.1')
 
 
 class Conv1dFun(Function):
@@ -195,8 +223,29 @@ def tensor_conv2d(
     s1 = input_strides
     s2 = weight_strides
 
+    if reverse == True:
+        out = out[::-1]
+        weight = weight[::-1]
+
+    for i in range(len(out)):
+        out_index = np.empty(len(out_shape), np.int32)
+        count(i, out_shape, out_index)
+        for j in range(in_channels * kh * kw):
+            w_ind = np.empty(len(weight_shape), np.int32)
+            count(j, weight_shape, w_ind)
+            w_ind[0] = out_index[1]
+            if w_ind[-1] + out_index[-1] < width and w_ind[-2] + out_index[-2] < height:
+                i_ind = np.copy(out_index)
+                i_ind[-3] = w_ind[-3]
+                i_ind[-2] = w_ind[-2] + out_index[-2]
+                i_ind[-1] = w_ind[-1] + out_index[-1]
+                inp_pos = index_to_position(i_ind, s1)
+                weight_pos = index_to_position(w_ind, s2)
+                out_pos = index_to_position(out_index, out_strides)
+                out[out_pos] += input[inp_pos] * weight[weight_pos]
+
     # TODO: Implement for Task 4.2.
-    raise NotImplementedError('Need to implement for Task 4.2')
+    # raise NotImplementedError('Need to implement for Task 4.2')
 
 
 class Conv2dFun(Function):

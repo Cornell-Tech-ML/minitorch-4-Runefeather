@@ -95,47 +95,66 @@ def make_tensor_backend(tensor_ops, is_cuda=False):
         class Mul(Function):
             @staticmethod
             def forward(ctx, a, b):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                ctx.save_for_backward(a, b)
+                return mul_zip(a, b)
 
             @staticmethod
             def backward(ctx, grad_output):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                a, b = ctx.saved_values
+                return mul_zip(b, grad_output), mul_zip(a, grad_output)
 
         class Sigmoid(Function):
             @staticmethod
             def forward(ctx, a):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                ctx.save_for_backward(sigmoid_map(a))
+                return sigmoid_map(a)
 
             @staticmethod
             def backward(ctx, grad_output):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                # x = ctx.saved_values
+                # sx = operators.sigmoid(x)
+                # return d_output * sx * (1 - sx)
+                sig_a = ctx.saved_values
+                one = grad_output.zeros(sig_a.shape)
+                one._tensor._storage[:] = 1
+                neg_sig_a = neg_map(sig_a)
+                one_minus_sig_a = add_zip(one, neg_sig_a)
+                sig_term = mul_zip(sig_a, one_minus_sig_a)
+
+                return mul_zip(sig_term, grad_output)
 
         class ReLU(Function):
             @staticmethod
             def forward(ctx, a):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                ctx.save_for_backward(a)
+                return relu_map(a)
 
             @staticmethod
             def backward(ctx, grad_output):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                a = ctx.saved_values
+                return relu_back_zip(a, grad_output)
 
         class Log(Function):
             @staticmethod
             def forward(ctx, a):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                ctx.save_for_backward(a)
+                return log_map(a)
 
             @staticmethod
             def backward(ctx, grad_output):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                a = ctx.saved_values
+                return log_back_zip(a, grad_output)
 
         class Exp(Function):
             @staticmethod
             def forward(ctx, a):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                ctx.save_for_backward(exp_map(a))
+                return exp_map(a)
 
             @staticmethod
             def backward(ctx, grad_output):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                out = ctx.saved_values
+                return mul_zip(out, grad_output)
 
         class Sum(Function):
             @staticmethod
@@ -161,38 +180,64 @@ def make_tensor_backend(tensor_ops, is_cuda=False):
         class Mean(Function):
             @staticmethod
             def forward(ctx, a, dim):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                ctx.save_for_backward(a.size, a.shape, dim)
+                if dim is not None:
+                    return (1 / a.shape[dim]) * add_reduce(a, [dim])
+                else:
+                    return (1 / a.size) * add_reduce(a, list(range(a.dims))).view(1)
 
             @staticmethod
             def backward(ctx, grad_output):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                a_size, a_shape, dim = ctx.saved_values
+                # START Code Update
+                if dim is None:
+                    out = grad_output.zeros(a_shape)
+                    out._tensor._storage[:] = grad_output[0]
+                    out_a = grad_output.zeros(a_shape)
+                    out_a._tensor._storage[:] = 1 / a_size
+                    return mul_zip(out_a, out)
+                else:
+                    d = grad_output.zeros(a_shape)
+                    d._tensor._storage[:] = 1 / a_shape[dim]
+                    return mul_zip(d, grad_output)
 
         class LT(Function):
             @staticmethod
             def forward(ctx, a, b):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                ctx.save_for_backward(a.shape)
+                return lt_zip(a, b)
 
             @staticmethod
             def backward(ctx, grad_output):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                s = ctx.saved_values
+                return zeros(s)
 
         class EQ(Function):
             @staticmethod
             def forward(ctx, a, b):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                ctx.save_for_backward(a.shape)
+                return eq_zip(a, b)
 
             @staticmethod
             def backward(ctx, grad_output):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                s = ctx.saved_values
+                return zeros(s)
 
         class Permute(Function):
             @staticmethod
             def forward(ctx, a, order):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                rev_order = [0 for i in range(len(order))]
+                for i in range(len(order)):
+                    rev_order[order[i]] = i
+                ctx.save_for_backward(tuple(rev_order))
+                return Tensor(a._tensor.permute(*order), backend=a.backend)
 
             @staticmethod
             def backward(ctx, grad_output):
-                raise NotImplementedError('Need to include this file from past assignment.')
+                order = ctx.saved_values
+                return Tensor(
+                    grad_output._tensor.permute(*order), backend=grad_output.backend
+                )
 
         class View(Function):
             @staticmethod

@@ -23,8 +23,12 @@ def index_to_position(index, strides):
     Returns:
         int : position in storage
     """
-
-    raise NotImplementedError('Need to include this file from past assignment.')
+    # Given index and stride, can calculate storage as follows:
+    # storage[s1 * index1 + s2 * index2 + s3 * index3 ... ]
+    position = 0
+    for ind, stride in zip(index, strides):
+        position += ind * stride
+    return position
 
 
 def count(position, shape, out_index):
@@ -43,7 +47,12 @@ def count(position, shape, out_index):
       None : Fills in `out_index`.
 
     """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    # if its a 1d array then out_index is position
+    cur_pos = position + 0
+    for i in range(len(shape) - 1, -1, -1):
+        sh = shape[i]
+        out_index[i] = int(cur_pos % sh)
+        cur_pos = cur_pos // sh
 
 
 def broadcast_index(big_index, big_shape, shape, out_index):
@@ -63,7 +72,12 @@ def broadcast_index(big_index, big_shape, shape, out_index):
     Returns:
         None : Fills in `out_index`.
     """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    for i, s in enumerate(shape):
+        if s > 1:
+            out_index[i] = big_index[i + len(big_shape) - len(shape)]
+        else:
+            out_index[i] = 0
+    return None
 
 
 def shape_broadcast(shape1, shape2):
@@ -80,7 +94,34 @@ def shape_broadcast(shape1, shape2):
     Raises:
         IndexingError : if cannot broadcast
     """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    len1 = len(shape1)
+    len2 = len(shape2)
+    least = min(len1, len2)
+    most = []
+    if len1 == least:
+        most = shape2
+    else:
+        most = shape1
+
+    out = [0 for i in range(least)]
+
+    if least == 1:
+        if shape1[-1] != 1 and shape2[-1] != 1 and shape1[-1] != shape2[-1]:
+            raise IndexingError("Indices do not match!")
+        out = [max(shape1[-1], shape2[-1])]
+        out_shape = list(most)[: len(most) - len(out)] + out
+        return tuple(out_shape)
+
+    for i in range(least):
+        i = least - 1 - i
+        if shape1[i] == 1 or shape2[i] == 1:
+            out[i] = shape1[i] * shape2[i]
+        elif shape1[i] != shape2[i]:
+            raise IndexingError("Indices do not match!")
+        else:
+            out[i] = shape1[i]
+    out_shape = list(most)[: len(most) - len(out)] + out
+    return tuple(out_shape)
 
 
 def strides_from_shape(shape):
@@ -112,6 +153,7 @@ class TensorData:
         self.dims = len(strides)
         self.size = int(prod(shape))
         self.shape = shape
+        # print("Storage, size in tensorData", len(self._storage), self.size)
         assert len(self._storage) == self.size
 
     def to_cuda_(self):
@@ -187,7 +229,10 @@ class TensorData:
             range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
-        raise NotImplementedError('Need to include this file from past assignment.')
+        new_shape = [self._shape[i] for i in order]
+        new_strides = [self._strides[i] for i in order]
+
+        return TensorData(self._storage, tuple(new_shape), tuple(new_strides))
 
     def to_string(self):
         s = ""

@@ -17,6 +17,7 @@ import numpy as np
 count = cuda.jit(device=True)(count)
 index_to_position = cuda.jit(device=True)(index_to_position)
 broadcast_index = cuda.jit(device=True)(broadcast_index)
+THREADS_TOTAL = 32
 
 
 def tensor_map(fn):
@@ -41,7 +42,28 @@ def tensor_map(fn):
     """
 
     def _map(out, out_shape, out_strides, out_size, in_storage, in_shape, in_strides):
-        raise NotImplementedError('Need to include this file from past assignment.')
+
+        x = numba.cuda.blockIdx.x * THREADS_TOTAL + numba.cuda.threadIdx.x
+
+        check_true = 0
+        if len(out_shape) == len(in_shape):
+            for i in range(0, len(in_shape)):
+                if out_shape[i] == in_shape[i]:
+                    if out_strides[i] == in_strides[i]:
+                        check_true += 1
+
+        if check_true == len(out_shape):
+            if x >= 0 and x <= out.size:
+                out[x] = fn(in_storage[x])
+        else:
+            if x >= 0 and x <= out.size:
+                out_index = numba.cuda.local.array(MAX_DIMS, numba.int32)
+                in_index = numba.cuda.local.array(MAX_DIMS, numba.int32)
+                count(x, out_shape, out_index)
+                broadcast_index(out_index, out_shape, in_shape, in_index)
+                o = index_to_position(out_index, out_strides)
+                j = index_to_position(in_index, in_strides)
+                out[o] = fn(in_storage[j])
 
     return cuda.jit()(_map)
 
@@ -99,7 +121,34 @@ def tensor_zip(fn):
         b_shape,
         b_strides,
     ):
-        raise NotImplementedError('Need to include this file from past assignment.')
+
+        # if list(a_shape) == list(b_shape) and list(a_strides) == list(b_strides):
+        #     for x in prange(len(out)):
+        #         out[x] = fn(a_storage[x], b_storage[x])
+        x = numba.cuda.blockIdx.x * THREADS_TOTAL + numba.cuda.threadIdx.x
+
+        check_true = 0
+        if len(a_shape) == len(b_shape) == len(out_shape):
+            for i in range(0, len(a_shape)):
+                if a_shape[i] == b_shape[i] == out_shape[i]:
+                    if a_strides[i] == b_strides[i] == out_strides[i]:
+                        check_true += 1
+
+        if check_true == len(out_shape):
+            if x >= 0 and x <= out_size:
+                out[x] = fn(a_storage[x], b_storage[x])
+        else:
+            if x >= 0 and x <= out_size:
+                out_index = numba.cuda.local.array(MAX_DIMS, numba.int32)
+                a_index = numba.cuda.local.array(MAX_DIMS, numba.int32)
+                b_index = numba.cuda.local.array(MAX_DIMS, numba.int32)
+                count(x, out_shape, out_index)
+                o = index_to_position(out_index, out_strides)
+                broadcast_index(out_index, out_shape, a_shape, a_index)
+                j = index_to_position(a_index, a_strides)
+                broadcast_index(out_index, out_shape, b_shape, b_index)
+                k = index_to_position(b_index, b_strides)
+                out[o] = fn(a_storage[j], b_storage[k])
 
     return cuda.jit()(_zip)
 
@@ -151,7 +200,22 @@ def tensor_reduce(fn):
         reduce_shape,
         reduce_size,
     ):
-        raise NotImplementedError('Need to include this file from past assignment.')
+
+        x = numba.cuda.blockIdx.x * THREADS_TOTAL + numba.cuda.threadIdx.x
+
+        if x >= 0 and x <= out_size:
+            out_index = numba.cuda.local.array(MAX_DIMS, numba.int32)
+            a_index = numba.cuda.local.array(MAX_DIMS, numba.int32)
+            count(x, out_shape, out_index)
+            o = index_to_position(out_index, out_strides)
+
+            for s in range(reduce_size):
+                count(s, reduce_shape, a_index)
+                for j in range(len(reduce_shape)):
+                    if reduce_shape[j] != 1:
+                        out_index[j] = a_index[j]
+                t = index_to_position(out_index, a_strides)
+                out[o] = fn(out[o], a_storage[t])
 
     return cuda.jit()(_reduce)
 
@@ -188,6 +252,7 @@ def reduce(fn, start=0.0):
 
         threadsperblock = 32
         blockspergrid = (out.size + (threadsperblock - 1)) // threadsperblock
+
         f[blockspergrid, threadsperblock](
             *out.tuple(), out.size, *a.tuple(), np.array(reduce_shape), reduce_size
         )
@@ -236,7 +301,32 @@ def tensor_matrix_multiply(
         None : Fills in `out`
     """
 
-    raise NotImplementedError('Need to include this file from past assignment.')
+    x = numba.cuda.blockIdx.x * THREADS_TOTAL + numba.cuda.threadIdx.x
+
+    out_index = numba.cuda.local.array(MAX_DIMS, numba.int32)
+    a_index = numba.cuda.local.array(MAX_DIMS, numba.int32)
+    b_index = numba.cuda.local.array(MAX_DIMS, numba.int32)
+
+    if x >= 0 and x < out.size:
+        count(x, out_shape, out_index)
+
+        for k in range(a_shape[-1]):
+            for i, e in enumerate(out_index):
+                a_index[i] = e
+                b_index[i] = e
+            a_index[len(out_shape) - 1] = k
+            b_index[len(out_shape) - 2] = k
+
+            a_final_ind = numba.cuda.local.array(MAX_DIMS, numba.int32)
+            b_final_ind = numba.cuda.local.array(MAX_DIMS, numba.int32)
+
+            broadcast_index(a_index, out_shape, a_shape, a_final_ind)
+            broadcast_index(b_index, out_shape, b_shape, b_final_ind)
+
+            a_pos = index_to_position(a_final_ind, a_strides)
+            b_pos = index_to_position(b_final_ind, b_strides)
+            out_pos = index_to_position(out_index, out_strides)
+            out[out_pos] += a_storage[a_pos] * b_storage[b_pos]
 
 
 def matrix_multiply(a, b):

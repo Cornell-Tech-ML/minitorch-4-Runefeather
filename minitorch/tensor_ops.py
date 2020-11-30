@@ -1,11 +1,6 @@
 import numpy as np
-from .tensor_data import (
-    count,
-    index_to_position,
-    broadcast_index,
-    shape_broadcast,
-    MAX_DIMS,
-)
+from .tensor_data import count, index_to_position, broadcast_index
+from .tensor_data import shape_broadcast
 
 
 def tensor_map(fn):
@@ -29,7 +24,16 @@ def tensor_map(fn):
     """
 
     def _map(out, out_shape, out_strides, in_storage, in_shape, in_strides):
-        raise NotImplementedError('Need to include this file from past assignment.')
+
+        for i in range(0, len(out)):
+            out_ind = np.array(out_shape)
+            count(i, out_shape, out_ind)
+            ind_act = [a for a in in_shape]
+
+            broadcast_index(out_ind, out_shape, in_shape, ind_act)
+            ind = index_to_position(ind_act, in_strides)
+
+            out[i] = fn(in_storage[ind])
 
     return _map
 
@@ -49,7 +53,7 @@ def map(fn):
                should broadcast with `a`
 
     Returns:
-        :class:`Tensor` : new tensor
+        :class:`TensorData` : new tensor data
     """
 
     f = tensor_map(fn)
@@ -98,7 +102,19 @@ def tensor_zip(fn):
         b_shape,
         b_strides,
     ):
-        raise NotImplementedError('Need to include this file from past assignment.')
+
+        for i in range(0, len(out)):
+            out_ind = np.array(out_shape)
+            count(i, out_shape, out_ind)
+
+            a_ind = [a for a in a_shape]
+            b_ind = [b for b in b_shape]
+            broadcast_index(out_ind, out_shape, a_shape, a_ind)
+            broadcast_index(out_ind, out_shape, b_shape, b_ind)
+
+            ind_a = index_to_position(a_ind, a_strides)
+            ind_b = index_to_position(b_ind, b_strides)
+            out[i] = fn(a_storage[ind_a], b_storage[ind_b])
 
     return _zip
 
@@ -116,7 +132,7 @@ def zip(fn):
         b (:class:`TensorData`): tensor to zip over
 
     Returns:
-        :class:`Tensor` : new tensor
+        :class:`TensorData` : new tensor data
     """
 
     f = tensor_zip(fn)
@@ -165,7 +181,31 @@ def tensor_reduce(fn):
         reduce_shape,
         reduce_size,
     ):
-        raise NotImplementedError('Need to include this file from past assignment.')
+        # # Get list of out_indices
+        # out_tensor = TensorData(out, tuple(out_shape), tuple(out_strides))
+        # list_indices = list(out_tensor.indices())
+
+        # # Get list of reduce_indices
+        # reduce_tensor = TensorData([0 for i in range(reduce_size)], tuple(reduce_shape))
+        # reduce_indices = list(reduce_tensor.indices())
+
+        # for i in range(0, len(list_indices)):
+        #     for j in range(0, len(reduce_indices)):
+        #         to_add = [
+        #             list_indices[i][a] + reduce_indices[j][a]
+        #             for a in range(0, len(list_indices[i]))
+        #         ]
+        #         to_add_pos = index_to_position(to_add, a_strides)
+        #         out[i] = fn(out[i], a_storage[to_add_pos])
+        for i in range(len(out)):
+            out_ind = np.array(out_shape)
+            count(i, out_shape, out_ind)
+            for j in range(reduce_size):
+                red_ind = np.array(reduce_shape)
+                count(j, reduce_shape, red_ind)
+                add_ind = out_ind + red_ind
+                add_pos = index_to_position(add_ind, a_strides)
+                out[i] = fn(out[i], a_storage[add_pos])
 
     return _reduce
 
@@ -184,9 +224,8 @@ def reduce(fn, start=0.0):
         dims (list, optional): list of dims to reduce
         out (:class:`TensorData`, optional): tensor to reduce into
 
-
     Returns:
-        :class:`Tensor` : new tensor
+        :class:`TensorData` : new tensor data
     """
 
     f = tensor_reduce(fn)
