@@ -80,20 +80,29 @@ def tensor_conv1d(
 
     for i in prange(len(out)):
         out_index = np.empty(len(out_shape), np.int32)
-        if(reverse):
-            i = len(out) - 1 - i
-        count(i, out_shape, out_index)
-        for j in range(in_channels*kw):
-            if(reverse):
+        if reverse:
+            a = len(out) - 1 - i
+            count(a, out_shape, out_index)
+        else:
+            count(i, out_shape, out_index)
+        for j in range(in_channels * kw):
+            if reverse:
                 j = (in_channels * kw) - 1 - j
             w_ind = np.empty(len(weight_shape), np.int32)
             count(j, weight_shape, w_ind)
             w_ind[0] = out_index[1]
             i_ind = np.copy(w_ind)
             i_ind[0] = out_index[0]
-            if(reverse):
+            if reverse:
                 i_ind[-1] = out_index[-1] - (kw - 1 - w_ind[-1])
-                print("out_ind: ", out_index[-1], " i_ind: ", i_ind[-1], " and w_ind: ", w_ind[-1])
+                print(
+                    "out_ind: ",
+                    out_index[-1],
+                    " i_ind: ",
+                    i_ind[-1],
+                    " and w_ind: ",
+                    w_ind[-1],
+                )
             else:
                 i_ind[-1] = out_index[-1] + w_ind[-1]
             if i_ind[-1] < width and i_ind[-1] >= 0:
@@ -221,13 +230,13 @@ def tensor_conv2d(
     s2 = weight_strides
 
     if reverse:
-        weight_range = range((in_channels*kw*kh)-1, -1, -1)
+        weight_range = range((in_channels * kw * kh) - 1, -1, -1)
     else:
-        weight_range = range(in_channels*kw*kh)
+        weight_range = range(in_channels * kw * kh)
 
     for i in prange(len(out)):
         out_index = np.empty(len(out_shape), np.int32)
-        if(reverse):
+        if reverse:
             a = len(out) - 1 - i
             count(a, out_shape, out_index)
         else:
@@ -245,7 +254,12 @@ def tensor_conv2d(
             else:
                 i_ind[-2] = w_ind[-2] + out_index[-2]
                 i_ind[-1] = w_ind[-1] + out_index[-1]
-            if i_ind[-1] < width and i_ind[-2] < height and i_ind[-1] >= 0 and i_ind[-2] >= 0:
+            if (
+                i_ind[-1] < width
+                and i_ind[-2] < height
+                and i_ind[-1] >= 0
+                and i_ind[-2] >= 0
+            ):
                 inp_pos = index_to_position(i_ind, s1)
                 weight_pos = index_to_position(w_ind, s2)
                 out[out_pos] += input[inp_pos] * weight[weight_pos]

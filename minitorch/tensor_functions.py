@@ -112,7 +112,7 @@ def make_tensor_backend(tensor_ops, is_cuda=False):
             @staticmethod
             def backward(ctx, grad_output):
                 sigma = ctx.saved_values
-                return sigma*(-sigma+1.0)*grad_output
+                return sigma * (-sigma + 1.0) * grad_output
 
         class ReLU(Function):
             @staticmethod
@@ -176,7 +176,7 @@ def make_tensor_backend(tensor_ops, is_cuda=False):
                     return add_reduce(a, [dim]) / a.shape[dim]
                 else:
                     ctx.save_for_backward(a.size)
-                    return add_reduce(a, list(range(a.dims))).view(1) / a.size 
+                    return add_reduce(a, list(range(a.dims))).view(1) / a.size
 
             @staticmethod
             def backward(ctx, grad_output):
