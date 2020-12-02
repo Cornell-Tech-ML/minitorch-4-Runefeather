@@ -3,7 +3,7 @@ from .tensor_data import (
     count,
     index_to_position,
     broadcast_index,
-    MAX_DIMS,
+    # MAX_DIMS,
 )
 from .tensor_functions import Function
 from numba import njit, prange
