@@ -111,17 +111,8 @@ def make_tensor_backend(tensor_ops, is_cuda=False):
 
             @staticmethod
             def backward(ctx, grad_output):
-                # x = ctx.saved_values
-                # sx = operators.sigmoid(x)
-                # return d_output * sx * (1 - sx)
-                sig_a = ctx.saved_values
-                one = grad_output.zeros(sig_a.shape)
-                one._tensor._storage[:] = 1
-                neg_sig_a = neg_map(sig_a)
-                one_minus_sig_a = add_zip(one, neg_sig_a)
-                sig_term = mul_zip(sig_a, one_minus_sig_a)
-
-                return mul_zip(sig_term, grad_output)
+                sigma = ctx.saved_values
+                return sigma*(-sigma+1.0)*grad_output
 
         class ReLU(Function):
             @staticmethod
@@ -180,26 +171,17 @@ def make_tensor_backend(tensor_ops, is_cuda=False):
         class Mean(Function):
             @staticmethod
             def forward(ctx, a, dim):
-                ctx.save_for_backward(a.size, a.shape, dim)
                 if dim is not None:
-                    return (1 / a.shape[dim]) * add_reduce(a, [dim])
+                    ctx.save_for_backward(a.shape[dim])
+                    return add_reduce(a, [dim]) / a.shape[dim]
                 else:
-                    return (1 / a.size) * add_reduce(a, list(range(a.dims))).view(1)
+                    ctx.save_for_backward(a.size)
+                    return add_reduce(a, list(range(a.dims))).view(1) / a.size 
 
             @staticmethod
             def backward(ctx, grad_output):
-                a_size, a_shape, dim = ctx.saved_values
-                # START Code Update
-                if dim is None:
-                    out = grad_output.zeros(a_shape)
-                    out._tensor._storage[:] = grad_output[0]
-                    out_a = grad_output.zeros(a_shape)
-                    out_a._tensor._storage[:] = 1 / a_size
-                    return mul_zip(out_a, out)
-                else:
-                    d = grad_output.zeros(a_shape)
-                    d._tensor._storage[:] = 1 / a_shape[dim]
-                    return mul_zip(d, grad_output)
+                a = ctx.saved_values
+                return grad_output / a
 
         class LT(Function):
             @staticmethod

@@ -76,14 +76,21 @@ class Max(Function):
     @staticmethod
     def forward(ctx, input, dim):
         # "Forward of max should be max reduction"
+        if dim is not None:
+            out = max_reduce(input, [dim])
+            # dim = [dim]
+        else:
+            out = max_reduce(input, list(input.dims)).view(1)
+            dim = list(input.dims)[0]
         ctx.save_for_backward(input, dim)
-        return max_reduce(input, [dim])
+        return out
 
     @staticmethod
     def backward(ctx, grad_output):
-        # "Backward of max should be argmax (see above)"
-        inp, dim = ctx.saved_values()
-        return argmax(inp, dim)
+        inp, dim = ctx.saved_values
+        # am = argmax(inp, dim)
+        rand_t = rand(inp.shape)
+        return argmax(rand_t + inp, dim)
 
 
 max = Max.apply
@@ -167,5 +174,7 @@ def dropout(input, rate, ignore=False):
     else:
         random_t = rand(input.shape)
         rate_t = input.zeros(input.shape)
+        one_t = input.zeros(input.shape)
+        one_t._tensor._storage[:] = 1
         rate_t._tensor._storage[:] = rate
-        return input * (random_t > rate_t)
+        return input * (random_t < one_t - rate_t)

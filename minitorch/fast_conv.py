@@ -78,32 +78,29 @@ def tensor_conv1d(
     # print("out shape: ", out_shape)
     # print("Weight: ", weight_shape)
 
-    if reverse == True:
-        out = out[::-1]
-        weight = weight[::-1]
-
-    for i in range(len(out)):
+    for i in prange(len(out)):
         out_index = np.empty(len(out_shape), np.int32)
+        if(reverse):
+            i = len(out) - 1 - i
         count(i, out_shape, out_index)
-        for j in range(in_channels * kw):
+        for j in range(in_channels*kw):
+            if(reverse):
+                j = (in_channels * kw) - 1 - j
             w_ind = np.empty(len(weight_shape), np.int32)
             count(j, weight_shape, w_ind)
             w_ind[0] = out_index[1]
-            if w_ind[-1] + out_index[-1] < width:
-                i_ind = np.copy(w_ind)
-                i_ind[0] = out_index[0]
-                i_ind[-1] = w_ind[-1] + out_index[-1]
-                # print("out_ind: ", out_index, " i_ind: ", i_ind, " and w_ind: ", w_ind)
+            i_ind = np.copy(w_ind)
+            i_ind[0] = out_index[0]
+            if(reverse):
+                i_ind[-1] = out_index[-1] - (kw - 1 - w_ind[-1])
+                print("out_ind: ", out_index[-1], " i_ind: ", i_ind[-1], " and w_ind: ", w_ind[-1])
+            else:
+                i_ind[-1] = out_index[-1] + w_ind[-1]
+            if i_ind[-1] < width and i_ind[-1] >= 0:
                 inp_pos = index_to_position(i_ind, s1)
                 weight_pos = index_to_position(w_ind, s2)
                 out_pos = index_to_position(out_index, out_strides)
                 out[out_pos] += input[inp_pos] * weight[weight_pos]
-
-        # if(len(inp_ind) != 0):
-        # for k in range(len(inp_ind)):
-        # inp_real_ind = np.empty(MAX_DIMS, np.int32)
-        # broadcast_index(inp_ind[k], out_shape, input_shape, inp_real_ind)
-    # raise NotImplementedError('Need to implement for Task 4.1')
 
 
 class Conv1dFun(Function):
@@ -223,25 +220,34 @@ def tensor_conv2d(
     s1 = input_strides
     s2 = weight_strides
 
-    if reverse == True:
-        out = out[::-1]
-        weight = weight[::-1]
+    if reverse:
+        weight_range = range((in_channels*kw*kh)-1, -1, -1)
+    else:
+        weight_range = range(in_channels*kw*kh)
 
-    for i in range(len(out)):
+    for i in prange(len(out)):
         out_index = np.empty(len(out_shape), np.int32)
-        count(i, out_shape, out_index)
-        for j in range(in_channels * kh * kw):
+        if(reverse):
+            a = len(out) - 1 - i
+            count(a, out_shape, out_index)
+        else:
+            count(i, out_shape, out_index)
+        out_pos = index_to_position(out_index, out_strides)
+        for j in weight_range:
             w_ind = np.empty(len(weight_shape), np.int32)
             count(j, weight_shape, w_ind)
             w_ind[0] = out_index[1]
-            if w_ind[-1] + out_index[-1] < width and w_ind[-2] + out_index[-2] < height:
-                i_ind = np.copy(out_index)
-                i_ind[-3] = w_ind[-3]
+            i_ind = np.copy(out_index)
+            i_ind[-3] = w_ind[-3]
+            if reverse:
+                i_ind[-1] = out_index[-1] - (kw - 1 - w_ind[-1])
+                i_ind[-2] = out_index[-2] - (kh - 1 - w_ind[-2])
+            else:
                 i_ind[-2] = w_ind[-2] + out_index[-2]
                 i_ind[-1] = w_ind[-1] + out_index[-1]
+            if i_ind[-1] < width and i_ind[-2] < height and i_ind[-1] >= 0 and i_ind[-2] >= 0:
                 inp_pos = index_to_position(i_ind, s1)
                 weight_pos = index_to_position(w_ind, s2)
-                out_pos = index_to_position(out_index, out_strides)
                 out[out_pos] += input[inp_pos] * weight[weight_pos]
 
     # TODO: Implement for Task 4.2.

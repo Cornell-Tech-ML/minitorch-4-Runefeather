@@ -304,27 +304,35 @@ def tensor_matrix_multiply(
     Returns:
         None : Fills in `out`
     """
+    inner = a_shape[-1]
     for x in prange(len(out)):
         out_index = np.empty(MAX_DIMS, np.int32)
         a_index = np.empty(MAX_DIMS, np.int32)
         b_index = np.empty(MAX_DIMS, np.int32)
         count(x, out_shape, out_index)
-        a_index = np.copy(out_index)
-        b_index = np.copy(out_index)
 
-        for k in range(b_shape[-2]):
-            a_index[len(out_shape) - 1] = k
-            b_index[len(out_shape) - 2] = k
-            a_final_ind = np.empty(len(a_shape), np.int32)
-            b_final_ind = np.empty(len(b_shape), np.int32)
+        count(x, out_shape, a_index)
+        a_index[len(out_shape) - 1] = 0
+        a_final_ind = np.empty(len(a_shape), np.int32)
+        broadcast_index(a_index, out_shape, a_shape, a_final_ind)
+        a_pos = index_to_position(a_final_ind, a_strides)
 
-            broadcast_index(a_index, out_shape, a_shape, a_final_ind)
-            broadcast_index(b_index, out_shape, b_shape, b_final_ind)
+        count(x, out_shape, b_index)
+        b_index[len(out_shape) - 2] = 0
+        b_final_ind = np.empty(len(b_shape), np.int32)
+        broadcast_index(b_index, out_shape, b_shape, b_final_ind)
+        b_pos = index_to_position(b_final_ind, b_strides)
 
-            a_pos = index_to_position(a_final_ind, a_strides)
-            b_pos = index_to_position(b_final_ind, b_strides)
-            out_pos = index_to_position(out_index, out_strides)
-            out[out_pos] += a_storage[a_pos] * b_storage[b_pos]
+        # Reduce over a and b to fill in out_position
+        out_position = index_to_position(out_index, out_strides)
+        acc = 0.0
+        for off in prange(inner):
+            acc += (
+                a_storage[a_pos + off * a_strides[-1]]
+                * b_storage[b_pos + off * b_strides[-2]]
+            )
+        out[out_position] = acc
+    return out
 
 
 def matrix_multiply(a, b):
