@@ -264,9 +264,6 @@ def tensor_conv2d(
                 weight_pos = index_to_position(w_ind, s2)
                 out[out_pos] += input[inp_pos] * weight[weight_pos]
 
-    # TODO: Implement for Task 4.2.
-    # raise NotImplementedError('Need to implement for Task 4.2')
-
 
 class Conv2dFun(Function):
     @staticmethod

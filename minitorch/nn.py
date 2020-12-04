@@ -90,7 +90,7 @@ class Max(Function):
         inp, dim = ctx.saved_values
         # am = argmax(inp, dim)
         rand_t = rand(inp.shape)
-        return argmax(rand_t + inp, dim)
+        return argmax(rand_t + inp, dim) * grad_output
 
 
 max = Max.apply

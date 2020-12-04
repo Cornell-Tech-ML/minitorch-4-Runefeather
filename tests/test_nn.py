@@ -37,14 +37,6 @@ def test_max(t):
     out = minitorch.nn.max(t, 0)
     assert out[0, 0, 0] == max([t[k, 0, 0] for k in range(2)])
 
-    # for i in range(2):
-    #     for j in range(3):
-    #         assert (
-    #             out[i, j, 0]
-    #             == max([t[i, j, k] for k in range(4)])
-    #         )
-    # minitorch.grad_check(lambda t: minitorch.nn.max(t, (2, 2)), t)
-
 
 @pytest.mark.task4_4
 @given(tensors(shape=(1, 1, 4, 4)))

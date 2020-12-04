@@ -4,7 +4,7 @@ import visdom
 import numpy
 
 vis = visdom.Visdom()
-mndata = MNIST("data/")
+mndata = MNIST("..\data\\")
 images, labels = mndata.load_training()
 
 
@@ -92,6 +92,7 @@ class Network(minitorch.Module):
         # print(pool.shape)
         h = self.layer1.forward(pool).relu()
         # print(h.shape)
+        # if(self.mode == "train"):
         h = minitorch.dropout(h, 0.25)
         return minitorch.logsoftmax(self.layer2.forward(h), dim=1)
 
