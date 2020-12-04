@@ -29,7 +29,7 @@ python run_tests.py
 * Pictures and Outputs for Task 4.5
 
     *  1 picture from the Visdom plot while training
-        ![Simple Graph](https://github.com/Cornell-Tech-ML/minitorch-4-runefeather/blob/master/single_picture.png)
+        ![Simple Graph](https://github.com/Cornell-Tech-ML/minitorch-4-runefeather/blob/master/single_picture.jpg)
     * A screenshot of the Visdom screen while training
         ![Simple Loss](https://github.com/Cornell-Tech-ML/minitorch-4-runefeather/blob/master/screenshot.png)
     *   Output for training
