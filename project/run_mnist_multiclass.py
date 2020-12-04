@@ -4,7 +4,7 @@ import visdom
 import numpy
 
 vis = visdom.Visdom()
-mndata = MNIST("..\data\\")
+mndata = MNIST("..\data")
 images, labels = mndata.load_training()
 
 
