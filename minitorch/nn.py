@@ -172,9 +172,6 @@ def dropout(input, rate, ignore=False):
     if ignore:
         return input
     else:
-        random_t = rand(input.shape)
-        rate_t = input.zeros(input.shape)
-        one_t = input.zeros(input.shape)
-        one_t._tensor._storage[:] = 1
-        rate_t._tensor._storage[:] = rate
-        return input * (random_t < one_t - rate_t)
+        keep = 1 - rate
+        mask = rand(input.shape)
+        return input * (mask < keep)
